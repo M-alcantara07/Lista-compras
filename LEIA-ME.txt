@@ -1,0 +1,19 @@
+LISTA DE COMPRAS — INSTALAÇÃO NO CELULAR (ANDROID)
+
+O que vem no pacote:
+- index.html: a aplicação
+- manifest.json: dados para instalação como app
+- sw.js: cache offline
+- icon.svg: ícone
+
+IMPORTANTE:
+Para instalar como aplicativo PWA e usar offline depois da primeira abertura, os arquivos precisam estar publicados em um endereço HTTPS. Abrir index.html diretamente como arquivo não permite que todos os recursos de instalação/offline funcionem corretamente.
+
+PASSOS SIMPLES:
+1. No computador, extraia este ZIP.
+2. Publique os quatro arquivos em um serviço de hospedagem estática HTTPS (por exemplo, GitHub Pages ou Netlify).
+3. Abra o endereço HTTPS no Chrome do celular e espere a página carregar uma vez com internet.
+4. No menu ⋮ do Chrome, toque em "Instalar app" ou "Adicionar à tela inicial".
+5. Abra pelo ícone instalado. Depois da primeira carga, a página fica em cache e pode abrir sem internet.
+
+Os itens e marcações são salvos localmente no navegador/aplicativo daquele aparelho. Não há sincronização entre celulares nesta versão. Não limpe os dados do navegador, pois isso pode apagar a lista salva.

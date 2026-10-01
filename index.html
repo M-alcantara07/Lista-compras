@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#203a8f">
+<meta name="description" content="Sua lista de compras, com categorias e funcionamento offline.">
+<link rel="manifest" href="manifest.json">
+<title>Lista de Compras</title>
+<style>
+:root{--blue:#203a8f;--paper:#fffdf7;--line:#dbe4f0;--ink:#172554;--muted:#64748b;--green:#176b45}
+*{box-sizing:border-box}
+body{margin:0;background:#f1f4f8;color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:760px;margin:auto;padding:16px 14px 32px}
+header{background:var(--paper);border:1px solid #e7dfcd;border-radius:18px;padding:20px 18px;margin-bottom:14px;box-shadow:0 2px 8px #1725540d}
+h1{font-size:1.65rem;margin:0 0 5px;color:var(--blue)}
+.subtitle{color:var(--muted);font-size:.92rem}
+.progress-wrap{margin-top:16px}
+.progress-label{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;margin-bottom:7px}
+progress{width:100%;height:10px;accent-color:var(--green)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+button,.button{border:0;border-radius:11px;padding:11px 13px;background:var(--blue);color:white;font-size:.95rem;font-weight:600;cursor:pointer;min-height:44px}
+button.secondary{background:#e7ecf8;color:var(--blue)}
+button.danger{background:#fbe8e8;color:#9f2020}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #f0b429;outline-offset:2px}
+.search{width:100%;padding:12px 13px;border:1px solid #cbd5e1;border-radius:11px;font-size:1rem;background:white}
+.category{background:var(--paper);border:1px solid #e7dfcd;border-radius:15px;margin:13px 0;overflow:hidden}
+.category-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 14px;border-bottom:1px solid var(--line)}
+.category-head h2{font-size:1.12rem;margin:0}
+.category-actions{display:flex;gap:5px}
+.iconbtn{min-height:36px;padding:6px 9px;font-size:.85rem}
+ul{list-style:none;margin:0;padding:3px 12px}
+.item{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #edf0f5;min-height:48px}
+.item:last-child{border-bottom:0}
+.item input[type=checkbox]{width:22px;height:22px;flex-shrink:0;accent-color:var(--green)}
+.item-name{flex:1;overflow-wrap:anywhere;font-size:1rem}
+.item.checked .item-name{text-decoration:line-through;color:#7b8798}
+.qty{color:var(--muted);font-size:.9rem;margin-right:4px}
+.item-actions{display:flex;gap:3px}
+.item-actions button{min-height:34px;padding:5px 8px;font-size:.8rem}
+.empty{padding:20px;text-align:center;color:var(--muted)}
+.note{font-size:.82rem;color:var(--muted);line-height:1.45;margin:16px 3px}
+dialog{border:0;border-radius:16px;padding:20px;width:min(92vw,440px);box-shadow:0 12px 45px #0f172a44;color:var(--ink)}
+dialog::backdrop{background:#0f172a88}
+dialog h2{margin-top:0}
+.field{display:grid;gap:6px;margin:13px 0}
+.field label{font-weight:650;font-size:.9rem}
+.field input,.field select{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:1rem;background:white}
+.dialog-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
+.status{font-size:.8rem;color:var(--green);margin-top:7px}
+@media(min-width:600px){.app{padding:24px}.toolbar button{flex:0 0 auto}}
+</style>
+</head>
+<body>
+<main class="app">
+<header>
+  <h1>🛒 Lista de Compras</h1>
+  <div class="subtitle">Sua lista do mês — as alterações ficam salvas neste aparelho.</div>
+  <div class="progress-wrap">
+    <div class="progress-label"><span id="progressText">0 de 0 itens comprados</span><strong id="progressPercent">0%</strong></div>
+    <progress id="progress" max="100" value="0"></progress>
+  </div>
+  <div class="status" id="connectionStatus">Pronta para usar offline após abrir uma vez com internet.</div>
+</header>
+<div class="toolbar">
+  <button id="addItem">＋ Adicionar item</button>
+  <button id="addCategory" class="secondary">＋ Categoria</button>
+  <button id="resetChecks" class="secondary">Desmarcar todos</button>
+</div>
+<input class="search" id="search" type="search" placeholder="🔎 Buscar item..." aria-label="Buscar item">
+<div id="list"></div>
+<p class="note">Dica: instale esta página na tela inicial do celular para abrir como um aplicativo. Seus itens e marcações ficam salvos neste aparelho, inclusive sem internet. Para evitar perder a lista, não apague os dados do navegador.</p>
+</main>
+<dialog id="editDialog">
+<form id="editForm">
+<h2 id="dialogTitle">Adicionar item</h2>
+<input type="hidden" id="itemId">
+<div class="field"><label for="name">Nome do item</label><input id="name" required maxlength="100" placeholder="Ex.: Queijo"></div>
+<div class="field"><label for="quantity">Quantidade (opcional)</label><input id="quantity" maxlength="60" placeholder="Ex.: 2 pacotes"></div>
+<div class="field"><label for="category">Categoria</label><select id="category" required></select></div>
+<div class="dialog-actions"><button type="button" class="secondary" id="cancelEdit">Cancelar</button><button type="submit">Salvar</button></div>
+</form>
+</dialog>
+<dialog id="categoryDialog">
+<form id="categoryForm">
+<h2>Nova categoria</h2>
+<div class="field"><label for="categoryName">Nome da categoria</label><input id="categoryName" required maxlength="60" placeholder="Ex.: Congelados"></div>
+<div class="dialog-actions"><button type="button" class="secondary" id="cancelCategory">Cancelar</button><button type="submit">Criar</button></div>
+</form>
+</dialog>
+<script>
+const starter = [
+["Mercearia", [["Azeite","1"],["Farinha de trigo","3 pacotes"],["Molho de tomate","4"],["Milho","2 latas"],["Batata palha","1 pacote"],["Pão de forma","2 pacotes"],["Bolachas / biscoitos",""],["Temperos",""],["Maionese","1"],["Ketchup","1"],["Mostarda","1"],["Creme de leite","4 a 6"],]],
+["Hortifruti", [["Tomate","2 kg"],["Alho",""],["Cebola",""],["Batata","2 kg"],["Cenoura","1,5 kg"],["Pimentão","300 g"],["Maçã",""],["Banana",""],["Cheiro-verde / salsinha e cebolinha",""],["Limão",""]]],
+["Laticínios e frios", [["Leite","2 caixas"],["Margarina","1"],["Manteiga","1"],["Requeijão","1"],["Muçarela (talvez)",""],["Presunto (talvez)",""]]],
+["Carnes e ovos", [["Ovos","2 a 3 bandejas"],["Frango","5 kg"],["Carne moída","2 kg"],["Coxão mole","2 kg"],["Linguiça toscana","1 kg"]]],
+["Limpeza e casa", [["Amaciante","1"],["Alvejante","1"],["Veja / limpador multiuso","1"],["Papel toalha","1 pacote"],["Papel higiênico","1 pacote"],["Detergente","3"]]],
+["Higiene pessoal", [["Sabonete",""],["Shampoo",""],["Pasta de dente",""]]]
+];
+const storageKey = "listaComprasOffline_v1";
+let data;
+try { data = JSON.parse(localStorage.getItem(storageKey)); } catch(e) {}
+if (!data || !Array.isArray(data.categories) || !Array.isArray(data.items)) {
+  data = {categories: starter.map((x,i)=>({id:"c"+i,name:x[0]})), items: starter.flatMap((x,i)=>x[1].map((it,j)=>({id:"i"+i+"_"+j,name:it[0],qty:it[1],categoryId:"c"+i,checked:false})))};
+}
+const $ = id => document.getElementById(id);
+function save(){ localStorage.setItem(storageKey, JSON.stringify(data)); render(); }
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function render(){
+  const q=$("search").value.trim().toLocaleLowerCase("pt-BR");
+  const all=data.items, bought=all.filter(x=>x.checked).length;
+  $("progressText").textContent=`${bought} de ${all.length} itens comprados`;
+  $("progressPercent").textContent=(all.length?Math.round(bought/all.length*100):0)+"%";
+  $("progress").value=all.length?bought/all.length*100:0;
+  const root=$("list"); root.innerHTML="";
+  let visible=0;
+  data.categories.forEach(cat=>{
+    const items=all.filter(x=>x.categoryId===cat.id && (x.name+" "+x.qty).toLocaleLowerCase("pt-BR").includes(q));
+    if(!items.length && q) return;
+    visible+=items.length;
+    const section=document.createElement("section"); section.className="category";
+    section.innerHTML=`<div class="category-head"><h2>${esc(cat.name)}</h2><div class="category-actions"><button class="secondary iconbtn" data-cat-edit="${esc(cat.id)}" aria-label="Renomear categoria">Renomear</button><button class="danger iconbtn" data-cat-delete="${esc(cat.id)}" aria-label="Excluir categoria">Excluir</button></div></div><ul>${items.map(item=>`<li class="item ${item.checked?"checked":""}"><input type="checkbox" data-check="${esc(item.id)}" ${item.checked?"checked":""} aria-label="Marcar ${esc(item.name)} como comprado"><span class="item-name">${esc(item.name)}${item.qty?` <span class="qty">— ${esc(item.qty)}</span>`:""}</span><span class="item-actions"><button class="secondary" data-edit="${esc(item.id)}">Editar</button><button class="danger" data-delete="${esc(item.id)}">×</button></span></li>`).join("")}</ul>${items.length?"":`<div class="empty">Nenhum item nesta categoria.</div>`}`;
+    root.appendChild(section);
+  });
+  if(!visible) root.innerHTML=`<div class="category empty">${q?"Nenhum item encontrado.":"Sua lista está vazia. Adicione um item para começar."}</div>`;
+}
+function fillCategories(selected){
+  $("category").innerHTML=data.categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
+  if(selected) $("category").value=selected;
+}
+function openItem(item){
+  $("editForm").reset(); $("itemId").value=item?.id||"";
+  $("dialogTitle").textContent=item?"Editar item":"Adicionar item";
+  $("name").value=item?.name||""; $("quantity").value=item?.qty||"";
+  fillCategories(item?.categoryId||data.categories[0]?.id);
+  if(!data.categories.length){alert("Crie uma categoria antes de adicionar itens.");return;}
+  $("editDialog").showModal(); $("name").focus();
+}
+$("addItem").addEventListener("click",()=>openItem(null));
+$("cancelEdit").addEventListener("click",()=>$("editDialog").close());
+$("editForm").addEventListener("submit",e=>{
+  e.preventDefault(); const id=$("itemId").value;
+  const item={id:id||("i"+Date.now()),name:$("name").value.trim(),qty:$("quantity").value.trim(),categoryId:$("category").value,checked:false};
+  if(!item.name)return;
+  if(id){const old=data.items.find(x=>x.id===id);if(old){item.checked=old.checked;Object.assign(old,item);}}
+  else data.items.push(item);
+  $("editDialog").close();save();
+});
+$("addCategory").addEventListener("click",()=>$("categoryDialog").showModal());
+$("cancelCategory").addEventListener("click",()=>$("categoryDialog").close());
+$("categoryForm").addEventListener("submit",e=>{
+  e.preventDefault();const name=$("categoryName").value.trim();if(!name)return;
+  data.categories.push({id:"c"+Date.now(),name});$("categoryDialog").close();$("categoryName").value="";save();
+});
+$("resetChecks").addEventListener("click",()=>{if(confirm("Desmarcar todos os itens comprados?")){data.items.forEach(i=>i.checked=false);save();}});
+$("search").addEventListener("input",render);
+$("list").addEventListener("change",e=>{
+  const id=e.target.dataset.check;if(id){const item=data.items.find(x=>x.id===id);if(item){item.checked=e.target.checked;save();}}
+});
+$("list").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.edit){const item=data.items.find(x=>x.id===b.dataset.edit);if(item)openItem(item);}
+  if(b.dataset.delete){const item=data.items.find(x=>x.id===b.dataset.delete);if(item&&confirm(`Excluir "${item.name}"?`)){data.items=data.items.filter(x=>x.id!==item.id);save();}}
+  if(b.dataset.catEdit){const cat=data.categories.find(x=>x.id===b.dataset.catEdit);if(cat){const n=prompt("Novo nome da categoria:",cat.name);if(n&&n.trim()){cat.name=n.trim();save();}}}
+  if(b.dataset.catDelete){const cat=data.categories.find(x=>x.id===b.dataset.catDelete);if(cat&&confirm(`Excluir a categoria "${cat.name}" e seus itens?`)){data.categories=data.categories.filter(x=>x.id!==cat.id);data.items=data.items.filter(x=>x.categoryId!==cat.id);save();}}
+});
+function updateConnection(){ $("connectionStatus").textContent=navigator.onLine?"Online — alterações salvas neste aparelho.":"Offline — sua lista continua disponível neste aparelho."; }
+window.addEventListener("online",updateConnection);window.addEventListener("offline",updateConnection);
+updateConnection();render();
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}
+</script>
+</body>
+</html>
